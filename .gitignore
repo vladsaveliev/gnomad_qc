@@ -1,1 +1,3 @@
 hail-*.log
+__pycache__/
+*.egg-info/
