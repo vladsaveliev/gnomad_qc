@@ -112,8 +112,8 @@ def get_gnomad_public_data(data_type, split=True, version=CURRENT_RELEASE):
     return hl.read_table(get_gnomad_public_data_path(data_type, split=split, version=version))
 
 
-def get_gnomad_data(data_type: str, adj: bool = False, split: bool = True, raw: bool = False,
-                    non_refs_only: bool = False, hail_version: str = CURRENT_HAIL_VERSION,
+def get_gnomad_data(bucket: str, adj: bool = False, split: bool = True, raw: bool = False,
+                    non_refs_only: bool = False,
                     meta_version: str = None, meta_root: Optional[str] = 'meta', full_meta: bool = False,
                     fam_version: str = CURRENT_FAM, fam_root: str = None, duplicate_mapping_root: str = None,
                     release_samples: bool = False, release_annotations: bool = None) -> hl.MatrixTable:
@@ -143,9 +143,9 @@ def get_gnomad_data(data_type: str, adj: bool = False, split: bool = True, raw: 
         raise DataException('No split raw data. Use of hardcalls is recommended.')
 
     if non_refs_only:
-        mt = hl.read_matrix_table(get_gnomad_data_path(data_type, split=split, non_refs_only=non_refs_only, hail_version=hail_version))
+        mt = hl.read_matrix_table(get_gnomad_data_path(bucket, split=split, non_refs_only=non_refs_only))
     else:
-        mt = hl.read_matrix_table(get_gnomad_data_path(data_type, hardcalls=not raw, split=split, hail_version=hail_version))
+        mt = hl.read_matrix_table(get_gnomad_data_path(bucket, hardcalls=not raw, split=split))
 
     if adj:
         mt = filter_to_adj(mt)
@@ -229,7 +229,7 @@ def get_gnomad_public_data_path(data_type, split=True, version=CURRENT_RELEASE):
     return DataException("Select data_type as one of 'genomes' or 'exomes'")
 
 
-def get_gnomad_data_path(data_type, hardcalls=False, split=True, non_refs_only=False, hail_version=CURRENT_HAIL_VERSION):
+def get_gnomad_data_path(bucket, hardcalls=False, split=True, non_refs_only=False):
     """
     Wrapper function to get paths to gnomAD data
 
@@ -243,14 +243,12 @@ def get_gnomad_data_path(data_type, hardcalls=False, split=True, non_refs_only=F
     """
     if hardcalls and non_refs_only:
         raise DataException('No dataset with hardcalls and non_refs_only')
-    if data_type not in ('exomes', 'genomes'):
-        raise DataException("Select data_type as one of 'genomes' or 'exomes'")
     if hardcalls:
-        return hardcalls_mt_path(data_type, split, hail_version)
+        return hardcalls_mt_path(bucket, split)
     elif non_refs_only:
-        return non_refs_only_mt_path(data_type, split)
+        return non_refs_only_mt_path(bucket, split)
     else:
-        return raw_exomes_mt_path(hail_version) if data_type == 'exomes' else raw_genomes_mt_path(hail_version)
+        return raw_genomes_mt_path(bucket)
 
 
 def get_gnomad_meta_path(data_type, version=None):
@@ -273,35 +271,19 @@ def get_gnomad_meta_path(data_type, version=None):
     return DataException("Select data_type as one of 'genomes' or 'exomes'")
 
 
-def raw_exomes_mt_path(hail_version=CURRENT_HAIL_VERSION):
+def raw_genomes_mt_path(bucket):
     """
     Warning: unsplit and no special consideration on sex chromosomes
     """
-    return 'gs://gnomad/raw/hail-{0}/mt/exomes/gnomad.exomes.mt'.format(hail_version)
+    return f'{bucket}/mt/genomes.mt'
 
 
-def raw_genomes_mt_path(hail_version=CURRENT_HAIL_VERSION):
-    """
-    Warning: unsplit and no special consideration on sex chromosomes
-    """
-    return 'gs://gnomad/raw/hail-{0}/mt/genomes/gnomad.genomes.mt'.format(hail_version)
+def hardcalls_mt_path(bucket, split=True):
+    return f'{bucket}/hardcalls/mt/gnomad.{"" if split else ".unsplit"}.mt'
 
 
-def raw_exac_mt_path(hail_version=CURRENT_HAIL_VERSION):
-    return 'gs://gnomad/raw/hail-{0}/mt/exac/exac.mt'.format(hail_version)
-
-
-def exac_release_sites_ht_path(hail_version=CURRENT_HAIL_VERSION):
-    return 'gs://gnomad/raw/hail-{}/ht/exac/exac.r1.sites.vep.ht'.format(hail_version)
-
-
-def hardcalls_mt_path(data_type, split=True, hail_version=CURRENT_HAIL_VERSION):
-    return 'gs://gnomad/hardcalls/hail-{0}/mt/{1}/gnomad.{1}{2}.mt'.format(hail_version, data_type,
-                                                                           "" if split else ".unsplit")
-
-
-def non_refs_only_mt_path(data_type, split=True):
-    return f'gs://gnomad/non_refs_only/hail-0.2/mt/{data_type}/gnomad.{data_type}{"" if split else ".unsplit"}.mt'
+def non_refs_only_mt_path(bucket, split=True):
+    return f'{bucket}/non_refs_only/mt/gnomad.{"" if split else ".unsplit"}.mt'
 
 
 def pbt_phased_trios_mt_path(data_type: str, split: bool = True, trio_matrix: bool = False, hail_version : str = CURRENT_HAIL_VERSION):
